@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -15,6 +16,8 @@ public class SlotMachine : MonoBehaviour
     [Header("Slot Machine")]
     [SerializeField] Transform[] slots;  // Should refer to the slot objects in your 3D scene
     [SerializeField] Symbol[] symbols;
+    [SerializeField] SlotsHandler slotsHandler;
+    [SerializeField] float matchesShowingDelay = 0.3f;
 
     [Header("Settings (change these values to match the slot machine)")]
     [SerializeField] int horizontalSlotCount = 5;
@@ -24,29 +27,30 @@ public class SlotMachine : MonoBehaviour
     [SerializeField] GameObject lineRendererPrefab;  // Prefab for a GameObject with LineRenderer attached
 
     private List<GameObject> _matchLines;
-    private bool isSpinning = false;
+    public bool isSpinning = false;
 
     bool stopped = false;
 
+    public bool hasSpinned = false;
+
+    public float won = 0;
 
     private void Awake()
     {
         _matchLines = new List<GameObject>();
     }
 
-    public void Spin(float bet, out float win)
+    public void Spin(float bet)
     {
-        if (stopped) { win = 0; return; };
+        if (stopped) { return; };
+        slotsHandler.ResetSlots();
 
-        win = 0;  // Initialize win to 0
-        if (isSpinning)
-        {
-            Debug.Log("Already spinning, wait for the spin to complete.");
-        }
+        slotsHandler.MoveSlotsToZero();
 
         isSpinning = true;
-
+        hasSpinned = false;
         // Clear any previous symbols and match lines
+        won = 0;
         ClearSlots();
         ClearMatchLines();
 
@@ -65,14 +69,29 @@ public class SlotMachine : MonoBehaviour
             }
         }
 
+        StartCoroutine(StartMatchChecking(bet));
+    }
+
+    IEnumerator StartMatchChecking(float bet)
+    {
+        while (true)
+        {
+            if (slotsHandler.IsMoving) yield return null;
+            else
+            {
+                break;
+            }
+        }
+        yield return new WaitForSeconds(matchesShowingDelay);
         // Run match checking and win calculation
         float matchMultiplier = CheckForMatches();
 
         // Calculate win based on the match multiplier and the bet
         if (matchMultiplier > 0)
         {
-            win = bet * matchMultiplier;
+            won = bet * matchMultiplier;
         }
+        hasSpinned = true;
 
         isSpinning = false;
     }
@@ -95,7 +114,27 @@ public class SlotMachine : MonoBehaviour
         lineRenderer.endWidth = 0.01f;
 
         _matchLines.Add(lineObject);
+        StartCoroutine(ToggleGameObjectActive(lineObject, 0.5f));
     }
+
+    IEnumerator ToggleGameObjectActive(GameObject target, float interval)
+    {
+        // Check if the GameObject exists and is not destroyed
+        while (target != null)
+        {
+            // Wait for the specified interval before toggling the state
+            yield return new WaitForSeconds(interval);
+
+            // Toggle active state
+            if (target != null)
+                target.SetActive(!target.activeSelf);
+        }
+
+        // If GameObject is destroyed, exit the coroutine
+        yield break;
+    }
+
+
 
     private float CheckForMatches()
     {
@@ -285,35 +324,35 @@ public class SlotMachine : MonoBehaviour
             }
             else if (entry.Value > 12)
             {
-                additionalMultiplier += entry.Value * 7.5f;    // Normal low value
+                additionalMultiplier += entry.Value * 10f;    // Normal low value
             }
             else if (entry.Value > 11)
             {
-                additionalMultiplier += entry.Value * 6f;    // Low average
+                additionalMultiplier += entry.Value * 8f;    // Low average
             }
             else if (entry.Value > 10)
             {
-                additionalMultiplier += entry.Value * 4.5f;     // Slightly below low average
+                additionalMultiplier += entry.Value * 6.5f;     // Slightly below low average
             }
             else if (entry.Value > 9)
             {
-                additionalMultiplier += entry.Value * 3f;     // Small value
+                additionalMultiplier += entry.Value * 5.5f;     // Small value
             }
             else if (entry.Value > 8)
             {
-                additionalMultiplier += entry.Value * 2f;     // Very small value
+                additionalMultiplier += entry.Value * 4f;     // Very small value
             }
             else if (entry.Value > 7)
             {
-                additionalMultiplier += entry.Value * 0.6f;     // Minimum multiplier range starts here
+                additionalMultiplier += entry.Value * 1f;     // Minimum multiplier range starts here
             }
             else if (entry.Value > 6)
             {
-                additionalMultiplier += entry.Value * 0.35f;     // Minimum meaningful value
+                additionalMultiplier += entry.Value * 0.8f;     // Minimum meaningful value
             }
             else if (entry.Value > 5)
             {
-                additionalMultiplier += entry.Value * 0.25f;      // Negligible but exists
+                additionalMultiplier += entry.Value * 0.4f;      // Negligible but exists
             }
             else if (entry.Value > 4)
             {
