@@ -14,10 +14,11 @@ public class Symbol
 public class SlotMachine : MonoBehaviour
 {
     [Header("Slot Machine")]
-    [SerializeField] Transform[] slots;  // Should refer to the slot objects in your 3D scene
+    [SerializeField] Transform[] slots;
     [SerializeField] Symbol[] symbols;
     [SerializeField] SlotsHandler slotsHandler;
     [SerializeField] float matchesShowingDelay = 0.3f;
+    [SerializeField] float matchesScale = 1.1f;
 
     [Header("Settings (change these values to match the slot machine)")]
     [SerializeField] int horizontalSlotCount = 5;
@@ -134,8 +135,6 @@ public class SlotMachine : MonoBehaviour
         yield break;
     }
 
-
-
     private float CheckForMatches()
     {
         float totalMultiplier = 0;
@@ -191,7 +190,13 @@ public class SlotMachine : MonoBehaviour
 
                         totalMultiplier += matchSymbol.multiplier * GetMultiplierForMatches(matchCount);
 
-                        // Track the symbol match count
+                        // Scale matching symbols
+                        for (int scaleIndex = 0; scaleIndex < verticalSlotCount; scaleIndex++)
+                        {
+                            int symbolIndex = scaleIndex * horizontalSlotCount + x;
+                            StartCoroutine(ScaleSymbolOverTime(slots[symbolIndex].GetChild(0).gameObject));
+                        }
+
                         AddToSymbolMatchCount(symbolMatchCounts, previousSymbolName, matchCount);
                     }
                 }
@@ -245,7 +250,13 @@ public class SlotMachine : MonoBehaviour
 
                         totalMultiplier += matchSymbol.multiplier * GetMultiplierForMatches(matchCount);
 
-                        // Track the symbol match count
+                        // Scale matching symbols
+                        for (int scaleIndex = matchStartIndex; scaleIndex <= x; scaleIndex++)
+                        {
+                            int symbolIndex = y * horizontalSlotCount + scaleIndex;
+                            StartCoroutine(ScaleSymbolOverTime(slots[symbolIndex].GetChild(0).gameObject));
+                        }
+
                         AddToSymbolMatchCount(symbolMatchCounts, previousSymbolName, matchCount);
                     }
                 }
@@ -402,6 +413,38 @@ public class SlotMachine : MonoBehaviour
             }
         }
     }
+
+    private IEnumerator ScaleSymbolOverTime(GameObject symbol)
+    {
+        float scaleFactor = matchesScale;
+        float duration = 0.35f;
+        Vector3 originalScale = symbol.transform.localScale;
+        Vector3 targetScale = originalScale * scaleFactor;
+
+        // Scale up
+        float time = 0;
+        while (time < duration && symbol != null)
+        {
+            symbol.transform.localScale = Vector3.Lerp(originalScale, targetScale, time / duration);
+            time += Time.deltaTime;
+            yield return null;
+        }
+
+        // Hold at max scale for a brief moment
+        yield return new WaitForSeconds(.2f);
+
+        // Scale back down
+        time = 0;
+        while (time < duration && symbol != null)
+        {
+            symbol.transform.localScale = Vector3.Lerp(targetScale, originalScale, time / duration);
+            time += Time.deltaTime;
+            yield return null;
+        }
+        if (symbol != null)
+            symbol.transform.localScale = originalScale;  // Ensure it's reset to the original scale
+    }
+
 
     private void ClearMatchLines()
     {
